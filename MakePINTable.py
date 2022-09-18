@@ -1,18 +1,20 @@
 import hashlib
 import threading
 from time import time
+import sys
 
 
-def hash_generator(algo, start, end, flc):
+def hash_generator(algo, start, end, flc, split):
     """Hash generator that supports threading
     :param algo: Algorithm identifier in string format
     :param start: Number the generator should start at
     :param end: Number the generator should end at
     :param flc: Forced length for the PIN
+    :param split: Number representing how often to dump hashes
     """
     counter = start
     while counter < end:
-        if len(hashes[algo]) >= 50:
+        if len(hashes[algo]) >= split:
             with open(f"output/pinhashes_{algo}.txt", "a") as out:
                 cache = "\n".join(hashes[algo])
                 cache = cache+"\n"
@@ -31,6 +33,12 @@ def hash_generator(algo, start, end, flc):
         print(f"Dumped remaining hashes for {algo}, stopping...")
 
 
+if "--reduced-memory-footprint" in sys.argv:
+    split = 25
+elif "--reduced-cpu-footprint" in sys.argv:
+    split = 100
+else:
+    split = 50
 alllibs = list(hashlib.algorithms_available)
 alllibs.pop(alllibs.index("shake_128"))
 alllibs.pop(alllibs.index("shake_256"))
@@ -50,7 +58,7 @@ starter = time() # Start the clock for timing
 for lib in libs: # Init phase, set up the hashes and threads dicts for each algo
     print(f"Initializing algo {lib}")
     hashes[lib] = []
-    thread = threading.Thread(name=lib, target=hash_generator, args=(lib,strt,ended,length if length != 0 else False))
+    thread = threading.Thread(name=lib, target=hash_generator, args=(lib,strt,ended,length if length != 0 else False, split))
     threads[lib] = thread
 init_end = time() # Note when init time ended, for timing
 
