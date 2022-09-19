@@ -1,5 +1,5 @@
 # PIN-Code-Hasher
-Generates hashes for a range of PIN codes determined by the user
+Generates hashes for a range of PIN codes determined by the user (primarily for rainbow tables)
 
 # How to use MakePINTables.py
 Simply launch the file with `python3` and any
