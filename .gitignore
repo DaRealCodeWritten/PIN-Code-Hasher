@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Hashes, should be committed to a rainbow table instead
+output/

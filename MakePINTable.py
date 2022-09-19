@@ -30,17 +30,31 @@ def hash_generator(algo, start, end, flc, split):
         out.write("\n".join(hashes[algo]))
 
 
+def loading_screen():
+    while 1:
+        try:
+            for sym in ["/", "-", "\\", "|"]:
+                global stop_code
+                if stop_code == 1:
+                    print(f"{sym} finished")
+                    return
+                global starter
+                print(f"{sym} working... {int(time()-starter)}s elapsed", end="\r")
+                sleep(0.5)
+        except: pass
+
 if "--reduced-memory-footprint" in sys.argv:
     split = 25
 elif "--reduced-cpu-footprint" in sys.argv:
     split = 100
 else:
     split = 50
+stop_code = 0
 alllibs = list(hashlib.algorithms_available)
 alllibs.pop(alllibs.index("shake_128"))
 alllibs.pop(alllibs.index("shake_256"))
 #libs = ["sha256", "sha512", "md5"]
-libs = alllibs
+libs = alllibs # DONT USE THIS UNLESS YOU KNOW WHAT YOU'RE DOING
 threads = {}
 hashes = {}
 length = int(input("Enter a forced length, or 0 to disable: "))
@@ -64,10 +78,14 @@ print("All threads initialized, starting", flush=True)
 for name, thread in threads.items(): # Start each algo's thread
     thread.start()
 start_end = time() # Note when start time ended
+loader = threading.Thread(name="load", target=loading_screen)
+loader.start()
 
 for name, thread in threads.items(): # Stop time, wait for every thread to close
     thread.join()
 all_end = time() # Note when all tasks have completed
+stop_code = 1
+loader.join()
 
 print("All done!", flush=True)
 print(f"Init took {round(init_end - starter, 3)} seconds")
