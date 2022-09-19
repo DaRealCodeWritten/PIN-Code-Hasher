@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 
 
 print("PIN Hash Finder v1")
@@ -16,10 +17,9 @@ for filename in os.listdir(directory):
     files.append(directory+filename)
 print(f"Indexed {len(files)} files")
 
-print("Searching, this may take a while...")
+print("Searching, this may take a while...", flush=True)
 found = False
 for file in files:
-    print(f"Considering {file}")
     try:
         with open(file) as stream:
             for line in stream:
@@ -27,12 +27,12 @@ for file in files:
                 if broken[1].strip("\n") == finder:
                     found = True
                     algo = file.split("_", 1)[1].strip(".txt")
-                    print(f"Hit: Hash matches PIN {broken[0]} using {algo}")
                     raise StopIteration() # We're done, break out of the loop
     except StopIteration:
         break
 
 if not found:
-    print("Couldn't find the PIN corresponding to the hash, exiting...")
+    print("Couldn't find the PIN corresponding to the hash, exiting...", flush=True)
     exit()
+print(f"PIN {broken[0]} using {algo}", flush=True)
 print("All done!")

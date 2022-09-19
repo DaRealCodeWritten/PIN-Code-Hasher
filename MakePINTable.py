@@ -1,6 +1,7 @@
 import hashlib
 import threading
-from time import time
+from tqdm import trange
+from time import time, sleep
 import sys
 
 
@@ -12,25 +13,21 @@ def hash_generator(algo, start, end, flc, split):
     :param flc: Forced length for the PIN
     :param split: Number representing how often to dump hashes
     """
-    counter = start
-    while counter < end:
+    for counter in range(start, end):
         if len(hashes[algo]) >= split:
             with open(f"output/pinhashes_{algo}.txt", "a") as out:
                 cache = "\n".join(hashes[algo])
                 cache = cache+"\n"
                 out.write(cache)
                 hashes[algo] = []
-                print(f"Dumped hashes for {algo}")
         pin = str(counter)
         hasher = hashlib.new(algo)
         string = pin if not flc else f"{counter:0{flc}d}"
         hasher.update(string.encode())
         hashed = hasher.hexdigest()
         hashes[algo].append(string+" | "+hashed)
-        counter += 1
     with open(f"output/pinhashes_{algo}.txt", "a") as out:
         out.write("\n".join(hashes[algo]))
-        print(f"Dumped remaining hashes for {algo}, stopping...")
 
 
 if "--reduced-memory-footprint" in sys.argv:
@@ -42,7 +39,8 @@ else:
 alllibs = list(hashlib.algorithms_available)
 alllibs.pop(alllibs.index("shake_128"))
 alllibs.pop(alllibs.index("shake_256"))
-libs = ["sha256", "sha512", "md5"]
+#libs = ["sha256", "sha512", "md5"]
+libs = alllibs
 threads = {}
 hashes = {}
 length = int(input("Enter a forced length, or 0 to disable: "))
@@ -56,23 +54,22 @@ if (len(list(str(strt))) > length or len(list(str(ended-1))) > length) and lengt
 
 starter = time() # Start the clock for timing
 for lib in libs: # Init phase, set up the hashes and threads dicts for each algo
-    print(f"Initializing algo {lib}")
+    print(f"Initializing algo {lib}", flush=True)
     hashes[lib] = []
     thread = threading.Thread(name=lib, target=hash_generator, args=(lib,strt,ended,length if length != 0 else False, split))
     threads[lib] = thread
 init_end = time() # Note when init time ended, for timing
 
+print("All threads initialized, starting", flush=True)
 for name, thread in threads.items(): # Start each algo's thread
-    print(f"Starting algo {name}")
     thread.start()
 start_end = time() # Note when start time ended
 
 for name, thread in threads.items(): # Stop time, wait for every thread to close
-    print(f"Waiting for algo {name} to stop")
     thread.join()
 all_end = time() # Note when all tasks have completed
 
-print("All done!")
+print("All done!", flush=True)
 print(f"Init took {round(init_end - starter, 3)} seconds")
 print(f"Starting took {round(start_end - init_end, 3)} seconds")
 print(f"Operation took {round(all_end - start_end, 3)} seconds")
