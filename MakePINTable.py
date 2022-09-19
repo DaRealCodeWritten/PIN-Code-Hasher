@@ -53,8 +53,8 @@ stop_code = 0
 alllibs = list(hashlib.algorithms_available)
 alllibs.pop(alllibs.index("shake_128"))
 alllibs.pop(alllibs.index("shake_256"))
-#libs = ["sha256", "sha512", "md5"]
-libs = alllibs # DONT USE THIS UNLESS YOU KNOW WHAT YOU'RE DOING
+libs = ["sha256", "sha512", "md5"]
+#libs = alllibs # DONT USE THIS UNLESS YOU KNOW WHAT YOU'RE DOING
 threads = {}
 hashes = {}
 length = int(input("Enter a forced length, or 0 to disable: "))
