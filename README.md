@@ -16,3 +16,4 @@ That line tells Python to use every algorithm available, which uses a ton of RAM
 # Launch args for MakePINTable.py
 `--reduced-memory-footprint` Dumps the cache to file more frequently but increases CPU usage
 `--reduced-cpu-footprint` Dumps the cache less frequently, more memory usage
+`--resume` Resumes hashing from state.json
