@@ -1,5 +1,5 @@
 import os
-from tqdm import tqdm
+#from tqdm import tqdm
 
 
 print("PIN Hash Finder v1")
