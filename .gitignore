@@ -130,3 +130,4 @@ dmypy.json
 
 # Hashes, should be committed to a rainbow table instead
 output/
+state.json

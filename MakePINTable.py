@@ -1,8 +1,37 @@
 import hashlib
 import threading
 from tqdm import trange
+from json import dump, load
 from time import time, sleep
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 import sys
+
+
+class StateManager:
+    def __init__(self):
+        self.state = {
+            "cache": {}
+        }
+    def update_state(self, new_state):
+        self.state.update(new_state)
+    def dump_state(self):
+        with open("state.json", "w") as file:
+            dump(self.state, file)
+    def load_state(self):
+        with open("state.json", "r") as file:
+            self.state = load(file)
+    def resume(self):
+        stop_no = self.state["end-number"]
+        force_len = self.state["force-length"]
+        skip_no = self.state["dump-frequency"]
+        cache = self.state["cache"]
+        for algo in cache.keys():
+            hashes[algo] = cache[algo]["hashes"]
+        with ThreadPoolExecutor(len(hashes.keys())) as exe:
+            for lib in cache.keys():
+                start_no = cache[lib]["ended"]
+                future = exe.submit(hash_generator, lib, start_no, stop_no, force_len, skip_no)
+                futures.append(future)
 
 
 def hash_generator(algo, start, end, flc, split):
@@ -14,6 +43,14 @@ def hash_generator(algo, start, end, flc, split):
     :param split: Number representing how often to dump hashes
     """
     for counter in range(start, end):
+        if stop_code == 1:
+            global stater
+            stater.state["cache"][algo] = {
+                "ended": counter,
+                "hashes": hashes[algo]
+            }
+            print(f"Successfully updated state, {algo} thread closed")
+            return
         if len(hashes[algo]) >= split:
             with open(f"output/pinhashes_{algo}.txt", "a") as out:
                 cache = "\n".join(hashes[algo])
@@ -50,16 +87,32 @@ elif "--reduced-cpu-footprint" in sys.argv:
 else:
     split = 50
 stop_code = 0
+hashes = {}
+futures = []
+stater = StateManager()
+if "--resume" in sys.argv:
+    print("Resuming...")
+    stater.load_state()
+    print("Loaded state, running...")
+    stater.resume()
+    print("Finished")
+    while not all(future.done() for future in futures):
+        continue
+    exit()
 alllibs = list(hashlib.algorithms_available)
 alllibs.pop(alllibs.index("shake_128"))
 alllibs.pop(alllibs.index("shake_256"))
 libs = ["sha256", "sha512", "md5"]
 #libs = alllibs # DONT USE THIS UNLESS YOU KNOW WHAT YOU'RE DOING
-threads = {}
-hashes = {}
 length = int(input("Enter a forced length, or 0 to disable: "))
 strt = int(input("Enter the starting number: "))
 ended = int(input("Enter the ending number: "))+1
+cur = {
+    "end-number": ended,
+    "force-length": length,
+    "dump-frequency": split
+}
+stater.update_state(cur)
 if ended < strt: # End number can't be less than the start!
     raise ValueError("Start number must be less than end number")
 if (len(list(str(strt))) > length or len(list(str(ended-1))) > length) and length != 0: 
@@ -70,25 +123,27 @@ starter = time() # Start the clock for timing
 for lib in libs: # Init phase, set up the hashes and threads dicts for each algo
     print(f"Initializing algo {lib}", flush=True)
     hashes[lib] = []
-    thread = threading.Thread(name=lib, target=hash_generator, args=(lib,strt,ended,length if length != 0 else False, split))
-    threads[lib] = thread
 init_end = time() # Note when init time ended, for timing
 
 print("All threads initialized, starting", flush=True)
-for name, thread in threads.items(): # Start each algo's thread
-    thread.start()
-start_end = time() # Note when start time ended
-loader = threading.Thread(name="load", target=loading_screen)
-loader.start()
-
-for name, thread in threads.items(): # Stop time, wait for every thread to close
-    thread.join()
+try:
+    with ThreadPoolExecutor(len(hashes.keys())) as executor:
+        for lib in hashes.keys():
+            future = executor.submit(hash_generator, lib, strt, ended, length, split)
+            futures.append(future)
+except KeyboardInterrupt:
+    print("Received SIGINT or Ctrl+C, shutting down")
+    stop_code = 1
+    for future in futures:
+        future.result()
+    stater.dump_state()
+try:
+    for future in futures:
+       if future.running(): raise TimeoutError()
+except TimeoutError as e:
+    raise RuntimeError("Main thread destroyed while child is running") from e
 all_end = time() # Note when all tasks have completed
-stop_code = 1
-loader.join()
-
 print("All done!", flush=True)
 print(f"Init took {round(init_end - starter, 3)} seconds")
-print(f"Starting took {round(start_end - init_end, 3)} seconds")
-print(f"Operation took {round(all_end - start_end, 3)} seconds")
+print(f"Operation took {round(all_end - init_end, 3)} seconds")
 print(f"Script took {round(all_end - starter, 3)} seconds")
