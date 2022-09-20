@@ -67,7 +67,7 @@ def hash_generator(algo, start, end, flc, split):
         out.write("\n".join(hashes[algo]))
 
 
-def loading_screen():
+def loading_screen(): # Loading screen while the hashing runs
     while 1:
         try:
             for sym in ["/", "-", "\\", "|"]:
@@ -81,16 +81,16 @@ def loading_screen():
         except: pass
 
 if "--reduced-memory-footprint" in sys.argv:
-    split = 25
+    split = 25 # Dump the cache more frequently
 elif "--reduced-cpu-footprint" in sys.argv:
-    split = 100
+    split = 100 # Dump the cache less frequently
 else:
     split = 50
 stop_code = 0
-hashes = {}
-futures = []
+hashes = {} # Dictionary of algorithms and cached hashes
+futures = [] # List of running futures
 stater = StateManager()
-if "--resume" in sys.argv:
+if "--resume" in sys.argv: # Try to resume from state.json
     print("Resuming...")
     stater.load_state()
     print("Loaded state, running...")
@@ -99,9 +99,10 @@ if "--resume" in sys.argv:
     while not all(future.done() for future in futures):
         continue
     exit()
+
 alllibs = list(hashlib.algorithms_available)
-alllibs.pop(alllibs.index("shake_128"))
-alllibs.pop(alllibs.index("shake_256"))
+alllibs.pop(alllibs.index("shake_128")) # These 2 algorithms
+alllibs.pop(alllibs.index("shake_256")) # require a length arg for hexdigest
 libs = ["sha256", "sha512", "md5"]
 #libs = alllibs # DONT USE THIS UNLESS YOU KNOW WHAT YOU'RE DOING
 length = int(input("Enter a forced length, or 0 to disable: "))
@@ -112,7 +113,8 @@ cur = {
     "force-length": length,
     "dump-frequency": split
 }
-stater.update_state(cur)
+stater.update_state(cur) # Save initial values for later resumption if needed
+
 if ended < strt: # End number can't be less than the start!
     raise ValueError("Start number must be less than end number")
 if (len(list(str(strt))) > length or len(list(str(ended-1))) > length) and length != 0: 
@@ -120,28 +122,34 @@ if (len(list(str(strt))) > length or len(list(str(ended-1))) > length) and lengt
     raise ValueError("Start and end number length must not exceed forced length")
 
 starter = time() # Start the clock for timing
+
 for lib in libs: # Init phase, set up the hashes and threads dicts for each algo
     print(f"Initializing algo {lib}", flush=True)
     hashes[lib] = []
 init_end = time() # Note when init time ended, for timing
 
 print("All threads initialized, starting", flush=True)
+
 try:
     with ThreadPoolExecutor(len(hashes.keys())) as executor:
         for lib in hashes.keys():
             future = executor.submit(hash_generator, lib, strt, ended, length, split)
             futures.append(future)
+
 except KeyboardInterrupt:
     print("Received SIGINT or Ctrl+C, shutting down")
-    stop_code = 1
-    for future in futures:
+    stop_code = 1 # Signal all threads to stop
+    for future in futures: # Wait for all futures to stop
         future.result()
-    stater.dump_state()
+    stater.dump_state() # Dump the current program state for later resumption
+
 try:
-    for future in futures:
+    for future in futures: # Check to make  sure no children were running
        if future.running(): raise TimeoutError()
-except TimeoutError as e:
+
+except TimeoutError as e: # Script tried to exit while child thread was running
     raise RuntimeError("Main thread destroyed while child is running") from e
+
 all_end = time() # Note when all tasks have completed
 print("All done!", flush=True)
 print(f"Init took {round(init_end - starter, 3)} seconds")
